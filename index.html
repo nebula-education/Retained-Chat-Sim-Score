@@ -586,7 +586,7 @@ async function getFinalFeedback(reason){
 
   var sys='You are a senior tarot advisor coach calibrating scores honestly for a retained chat simulation. CALIBRATION GUIDE: An advisor of average skill who showed basic empathy and asked 2-3 meaningful questions should score approximately 78-82 total. A strong advisor who built real trust and went deep should score 88-95. A weak advisor who stayed surface-level or used generic phrases should score 45-60. Address the advisor as \"you\" and \"your\" throughout \u2014 never third person. Be specific and cite actual messages from the transcript. Follow the output format exactly.';
 
-  var prompt='CLIENT: Michelle (FEEL archetype \u2014 anxiety about love, fear of being alone)\nARCHETYPE DETECTED BY ADVISOR: '+(detectedArchetype?'Yes':'No')+'\nOUTCOME: '+ms+'\nTOTAL MESSAGES FROM ADVISOR: '+msgCount+'\n\nTRANSCRIPT:\n'+transcript.join('\n')+'\n\nEvaluate the advisor on 5 criteria using honest calibrated scoring. An average advisor scores ~78-82 total. Return EXACTLY this format, no markdown:\n\n---EMPATHY---\nSCORE:[0-20]\nCOMMENT:[2 sentences using "you"/"your" \u2014 how you acknowledged Michelle\'s emotions. Cite specific moments from the transcript.]\n\n---ENGAGEMENT---\nSCORE:[0-20]\nCOMMENT:[2 sentences using "you"/"your" \u2014 how well you deepened the session. Did you ask follow-up questions that moved the conversation forward?]\n\n---TONE_OF_VOICE---\nSCORE:[0-20]\nCOMMENT:[2 sentences using "you"/"your" \u2014 whether your tone was warm, confident, and matched Michelle\'s guarded emotional state.]\n\n---TIME_FILLERS---\nSCORE:[0-20]\nCOMMENT:[2 sentences using "you"/"your" \u2014 whether you avoided generic filler phrases like "the universe", "energy", "your time will come", and stayed specific and purposeful.]\n\n---READING_DEPTH---\nSCORE:[0-20]\nCOMMENT:[2 sentences using "you"/"your" \u2014 whether you went beyond the surface marriage question to address the deeper fear of being alone or unloveable.]\n\n---FINAL_SCORE---\nSCORE:[0-100]\nCOMMENT:[3 sentences: first \u2014 the single most important strength you showed in this session; second \u2014 the most important thing you missed or could improve; third \u2014 one concrete specific recommendation you can apply in your very next session.]';
+  var prompt='CLIENT: Michelle (FEEL archetype \u2014 anxiety about love, fear of being alone)\nARCHETYPE DETECTED BY ADVISOR: '+(detectedArchetype?'Yes':'No')+'\nOUTCOME: '+ms+'\nTOTAL MESSAGES FROM ADVISOR: '+msgCount+'\n\nTRANSCRIPT:\n'+transcript.join('\n')+'\n\nEvaluate the advisor on 5 criteria using honest calibrated scoring. An average advisor scores ~78-82 total. Return EXACTLY this format, no markdown:\n\n---EMPATHY---\nSCORE:[0-20]\nCOMMENT:[2 sentences using "you"/"your" \u2014 how you acknowledged Michelle\'s emotions. Cite specific moments from the transcript.]\n\n---ENGAGEMENT---\nSCORE:[0-20]\nCOMMENT:[2 sentences using "you"/"your" \u2014 how well you deepened the session. Did you ask follow-up questions that moved the conversation forward?]\n\n---TONE_OF_VOICE---\nSCORE:[0-20]\nCOMMENT:[2 sentences using "you"/"your" \u2014 whether your tone was warm, confident, and matched Michelle\'s guarded emotional state.]\n\n---TIME_FILLERS---\nSCORE:[0-20]\nCOMMENT:[2 sentences using "you"/"your" \u2014 whether you avoided generic filler phrases like "the universe", "energy", "your time will come", and stayed specific and purposeful.]\n\n---READING_DEPTH---\nSCORE:[0-20]\nCOMMENT:[2 sentences using "you"/"your" \u2014 whether you went beyond the surface marriage question to address the deeper fear of being alone or unloveable.]\n\n---FINAL_SCORE---\\nSCORE:[0-100]\\n\\n---KEY_INSIGHT---\\nCOMMENT:[2 sentences: first \\u2014 your single most important strength in this session; second \\u2014 the most important thing you missed or could improve.]\\n\\n---RECOMMENDATION---\\nCOMMENT:[1 sentence: one concrete action you can take in your very next session to improve.]';
 
   try{
     var text=await callGemini(sys,[{role:'user',parts:[{text:prompt}]}],1600);
@@ -603,13 +603,25 @@ async function getFinalFeedback(reason){
       var cm=body.match(/COMMENT:\s*([\s\S]+)/i);
       return{score:sm?parseInt(sm[1]):null, comment:cm?cm[1].trim():''};
     }
+    function getSimpleSection(key,fullText){
+      var idx=fullText.indexOf('---'+key+'---');
+      if(idx===-1)return'';
+      var after=fullText.slice(idx+key.length+6);
+      var end=after.search(/---[A-Z_]+---/);
+      if(end===-1)end=after.length;
+      var body=after.slice(0,end).trim();
+      var cm=body.match(/COMMENT:\s*([\s\S]+)/i);
+      return cm?cm[1].trim():'';
+    }
 
-    var empathy  =getSection('EMPATHY',text);
-    var engage   =getSection('ENGAGEMENT',text);
-    var tone     =getSection('TONE_OF_VOICE',text);
-    var fillers  =getSection('TIME_FILLERS',text);
-    var depth    =getSection('READING_DEPTH',text);
-    var finalSec =getSection('FINAL_SCORE',text);
+    var empathy    =getSection('EMPATHY',text);
+    var engage     =getSection('ENGAGEMENT',text);
+    var tone       =getSection('TONE_OF_VOICE',text);
+    var fillers    =getSection('TIME_FILLERS',text);
+    var depth      =getSection('READING_DEPTH',text);
+    var finalSec   =getSection('FINAL_SCORE',text);
+    var keyInsight =getSimpleSection('KEY_INSIGHT',text);
+    var recommendation=getSimpleSection('RECOMMENDATION',text);
 
     var total=finalSec.score!==null?finalSec.score:null;
     if(total===null){
@@ -641,10 +653,15 @@ async function getFinalFeedback(reason){
       if(c.data.comment)html+='<div class="ef-text">'+c.data.comment+'</div>';
       html+='</div>';
     });
-    if(finalSec.comment){
+    if(keyInsight){
       html+='<div class="ef-section" style="padding-top:14px;border-top:1px solid var(--border)">';
-      html+='<span class="ef-label">\uD83D\uDCA1 Key Insight & Recommendation</span>';
-      html+='<div class="ef-text">'+finalSec.comment+'</div></div>';
+      html+='<span class="ef-label">\uD83D\uDCA1 Key Insight</span>';
+      html+='<div class="ef-text">'+keyInsight+'</div></div>';
+    }
+    if(recommendation){
+      html+='<div class="ef-section" style="padding-top:12px;border-top:1px solid var(--border)">';
+      html+='<span class="ef-label">\uD83C\uDFAF Recommendation for Next Session</span>';
+      html+='<div class="ef-text" style="background:rgba(111,112,246,.07);border:1px solid rgba(111,112,246,.2);border-radius:10px;padding:12px 14px;color:var(--cream)">'+recommendation+'</div></div>';
     }
     fb.innerHTML=html||'<div class="ef-section"><div class="ef-text">'+text+'</div></div>';
     await sendToSheets(reason);

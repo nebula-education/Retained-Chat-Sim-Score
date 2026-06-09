@@ -493,8 +493,7 @@ function doLogin(){
 function startSession(){
   geminiHistory=[]; transcript=[]; msgCount=0; sessionEnded=false;
   detectedArchetype=null; finalScore=null; finalFeedbackText='';
-  document.getElementById('archetype-badge').className='archetype-badge-chat';
-  document.getElementById('archetype-badge').textContent='Archetype: ?';
+  // archetype badge removed from UI — skip
   document.getElementById('session-timer').textContent='00:00';
   switchScreen('screen-ready','screen-chat');
   var inp=document.getElementById('msg-input');
@@ -556,9 +555,6 @@ async function detectArchetypeSignal(text){
     var r=await callGemini(sys,[{role:'user',parts:[{text:'Advisor message: "'+text+'"\nDoes it address FEEL archetype?'}]}],15);
     if(r.toUpperCase().includes('CORRECT')){
       detectedArchetype='FEEL';
-      var b=document.getElementById('archetype-badge');
-      b.className='archetype-badge-chat feel';
-      b.textContent='FEEL \u2014 anxiety';
     }
   }catch(e){}
 }
